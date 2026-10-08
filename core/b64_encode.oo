@@ -1,0 +1,77 @@
+// # oobase64 Encoding Engine
+//
+// Logline: Encodes arbitrary byte sequences into Base64 text with optional padding and column wrapping.
+//
+// Setup: Pure 6-bit chunking bit-packing engine with standard and URL-safe alphabet selection.
+//
+// Beats:
+//   1. Partition input byte sequences into 3-byte (24-bit) quantums.
+//   2. Extract four 6-bit symbol indices and translate to alphabet characters.
+//   3. Append RFC 4648 padding delimiters and format output with column wrapping.
+
+import "core/b64_alphabet.oo";
+
+pub fn b64_wrap_lines(text: String, wrap_cols: Int) -> String {
+    if wrap_cols <= 0 {
+        return text;
+    }
+    let n: Int = chars_len(text);
+    if n <= wrap_cols {
+        return text;
+    }
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        if i > 0 && (i % wrap_cols) == 0 {
+            out = out + "\n";
+        }
+        out = out + char_at(text, i);
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn b64_encode_stream(s: String, url_safe: Bool, include_padding: Bool, wrap_cols: Int) -> String {
+    let blen: Int = bytes_len(s);
+    if blen == 0 {
+        return "";
+    }
+    let mut out: String = "";
+    let mut i: Int = 0;
+
+    while i < blen {
+        let b0: Int = byte_at(s, i);
+        let rem: Int = blen - i;
+        let mut b1: Int = 0;
+        let mut b2: Int = 0;
+
+        if rem > 1 { b1 = byte_at(s, i + 1); }
+        if rem > 2 { b2 = byte_at(s, i + 2); }
+
+        let c0: Int = b0 / 4;
+        let c1: Int = ((b0 % 4) * 16) + (b1 / 16);
+        let c2: Int = ((b1 % 16) * 4) + (b2 / 64);
+        let c3: Int = b2 % 64;
+
+        out = out + b64_char_at(url_safe, c0);
+        out = out + b64_char_at(url_safe, c1);
+
+        if rem == 1 {
+            if include_padding {
+                out = out + "==";
+            }
+        } else if rem == 2 {
+            out = out + b64_char_at(url_safe, c2);
+            if include_padding {
+                out = out + "=";
+            }
+        } else {
+            out = out + b64_char_at(url_safe, c2);
+            out = out + b64_char_at(url_safe, c3);
+        }
+
+        i = i + 3;
+    }
+
+    return b64_wrap_lines(out, wrap_cols);
+}

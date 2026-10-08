@@ -1,0 +1,22 @@
+// # oobase64 Core Subsystem Anchor
+//
+// Logline: Consolidates Base64 alphabets, 6-bit chunk encoding, and decode unpacking engines.
+//
+// Setup: Root barrel shim for core Base64 binary-to-text transformation domain.
+//
+// Beats:
+//   1. Re-export RFC 4648 standard and URL-safe alphabet definitions and symbol lookups.
+//   2. Re-export 6-bit chunk encoder with padding delimiters and line wrapping.
+//   3. Re-export Base64 decoder with character validation and byte reconstruction.
+
+import "core/b64_alphabet.oo";
+import "core/b64_encode.oo";
+import "core/b64_decode.oo";
+
+pub fn core_subsystem_version() -> String {
+    return "0.2.0";
+}
+
+pub fn core_subsystem_description() -> String {
+    return "oobase64 pure openOODA core codec subsystem";
+}

@@ -1,0 +1,37 @@
+// # oobase64 Alphabet and Character Mapping Tables
+//
+// Logline: Standard and URL-safe Base64 alphabet definitions and character lookups.
+//
+// Setup: Pure string tables mapping 0..63 indices to glyphs and reverse search.
+//
+// Beats:
+//   1. Expose RFC 4648 standard and URL-safe Base64 alphabet strings.
+//   2. Translate 6-bit integer values (0..63) to target alphabet characters.
+//   3. Lookup character positions in alphabet with dual-variant compatibility.
+
+pub fn alphabet_standard() -> String {
+    return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+}
+
+pub fn alphabet_urlsafe() -> String {
+    return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+}
+
+pub fn b64_char_at(url_safe: Bool, idx: Int) -> String {
+    if idx < 0 || idx > 63 {
+        return "";
+    }
+    let alpha: String = if url_safe { alphabet_urlsafe() } else { alphabet_standard() };
+    return char_at(alpha, idx);
+}
+
+pub fn b64_val_of(c: String) -> Int {
+    if c == "+" || c == "-" {
+        return if c == "+" { 62 } else { 62 };
+    }
+    if c == "/" || c == "_" {
+        return 63;
+    }
+    let alpha: String = alphabet_standard();
+    return str_index_of(alpha, c);
+}

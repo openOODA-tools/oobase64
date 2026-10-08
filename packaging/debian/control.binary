@@ -1,0 +1,11 @@
+Package: oobase64
+Version: 0.2.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: openOODA-tools <ops@openooda.org>
+Depends: libc6
+Description: BASE64 ENCODER
+ SIMD-accelerated RFC 4648 Base64 data encoder and decoder with URL-safe variants.
+ Capability-bounded openOODA utility with zero ambient authority,
+ oote theme palettes, and native Model Context Protocol (MCP) surface.

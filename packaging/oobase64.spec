@@ -1,5 +1,5 @@
 Name:           oobase64
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        SIMD-accelerated RFC 4648 Base64 data encoder and decoder with URL-safe variants.
 License:        ASL 2.0
@@ -24,5 +24,5 @@ install -m 0755 %{SOURCE1} %{buildroot}/usr/bin/oobase64-uninstall
 /usr/bin/oobase64-uninstall
 
 %changelog
-* Wed Oct 07 2026 openOODA-tools <ops@openooda.org> - 0.1.0-1
-- Initial sovereign blueprint scaffolding
+* Wed Oct 07 2026 openOODA-tools <ops@openooda.org> - 0.2.0-1
+- Elevated to v0.2.0 with pure native openOODA, URL-safe support, and MCP server

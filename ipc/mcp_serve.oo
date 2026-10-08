@@ -1,0 +1,111 @@
+// # Model Context Protocol (MCP) Stdio Server for oobase64
+//
+// Logline: JSON-RPC 2.0 stdio server providing Base64 encoding, decoding, and alphabet tools.
+//
+// Setup: Demands FsReadCap for stdio streaming. Operates without ambient authority.
+//
+// Beats:
+//   1. Ingest JSON-RPC 2.0 frames over stdin and dispatch RPC methods.
+//   2. Advertise Base64 encoding, decoding, and alphabet inspection tools.
+//   3. Execute capability-bounded codecs and stream JSON responses.
+
+import "core/b64_encode.oo";
+import "core/b64_decode.oo";
+import "render/b64_theme.oo";
+import "ipc/json_field.oo";
+import "ipc/b64_opts.oo";
+
+pub fn run_mcp_server(fs: &FsReadCap) {
+    let mut running: Bool = true;
+    while running {
+        let line_res: Result[String, String] = oo_read_stdin_chunk(fs, 8192);
+        if !line_res.is_ok() {
+            running = false;
+        } else {
+            let line: String = match line_res { Ok(s) => s, Err(_) => "" };
+            let trimmed: String = str_trim(line);
+            if chars_len(trimmed) == 0 {
+                running = false;
+            } else {
+                let id: String = json_get_field(trimmed, "id");
+                let method: String = json_get_string(trimmed, "method");
+
+                if method == "initialize" {
+                    let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                        ",\"result\":{\"protocolVersion\":\"2024-11-05\"," +
+                        "\"serverInfo\":{\"name\":\"oobase64\",\"version\":\"0.2.0\"}," +
+                        "\"capabilities\":{\"tools\":{}}}}";
+                    println(resp);
+                } else if method == "notifications/initialized" {
+                    // Ack
+                } else if method == "tools/list" {
+                    let t1: String = "{\"name\":\"b64_encode\",\"description\":\"Encode text into Base64 string\"," +
+                        "\"inputSchema\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"},\"url_safe\":{\"type\":\"boolean\"},\"padding\":{\"type\":\"boolean\"},\"wrap\":{\"type\":\"integer\"}},\"required\":[\"text\"]}}";
+                    let t2: String = "{\"name\":\"b64_decode\",\"description\":\"Decode Base64 string back into original text\"," +
+                        "\"inputSchema\":{\"type\":\"object\",\"properties\":{\"encoded\":{\"type\":\"string\"}},\"required\":[\"encoded\"]}}";
+                    let t3: String = "{\"name\":\"b64_alphabets\",\"description\":\"List available Base64 alphabets (standard, url-safe)\"," +
+                        "\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}";
+                    let t4: String = "{\"name\":\"b64_stats\",\"description\":\"Query Base64 codec engine specifications\"," +
+                        "\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}";
+                    let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                        ",\"result\":{\"tools\":[" + t1 + "," + t2 + "," + t3 + "," + t4 + "]}}";
+                    println(resp);
+                } else if method == "tools/call" {
+                    let params: String = json_get_field(trimmed, "params");
+                    let tool_name: String = json_get_string(params, "name");
+                    let args: String = json_get_field(params, "arguments");
+
+                    if tool_name == "b64_encode" {
+                        let text_in: String = json_get_string(args, "text");
+                        let url_str: String = json_get_field(args, "url_safe");
+                        let pad_str: String = json_get_field(args, "padding");
+                        let wrap_str: String = json_get_field(args, "wrap");
+
+                        let url_safe: Bool = if chars_len(url_str) > 0 { url_str == "true" } else { false };
+                        let pad: Bool = if chars_len(pad_str) > 0 { pad_str == "true" } else { true };
+                        let wrap: Int = if chars_len(wrap_str) > 0 { parse_int_str(wrap_str) } else { 0 };
+
+                        let encoded: String = b64_encode_stream(text_in, url_safe, pad, wrap);
+                        let j: String = render_encode_json(text_in, encoded, url_safe);
+                        let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                            ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(j) + "\"}]}}";
+                        println(resp);
+                    } else if tool_name == "b64_decode" {
+                        let enc_in: String = json_get_string(args, "encoded");
+                        let d_res: Result[String, String] = b64_decode_stream(enc_in);
+                        let mut j: String = "";
+                        if d_res.is_ok() {
+                            let dec_out: String = match d_res { Ok(s) => s, Err(_) => "" };
+                            j = render_decode_json(enc_in, dec_out, true, "");
+                        } else {
+                            let err_msg: String = match d_res { Ok(_) => "", Err(e) => e };
+                            j = render_decode_json(enc_in, "", false, err_msg);
+                        }
+                        let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                            ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(j) + "\"}]}}";
+                        println(resp);
+                    } else if tool_name == "b64_alphabets" {
+                        let j: String = "{\"alphabets\":[{\"name\":\"standard\",\"symbols\":\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\",\"padding\":\"=\"}," +
+                            "{\"name\":\"url-safe\",\"symbols\":\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\",\"padding\":\"optional\"}]}";
+                        let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                            ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(j) + "\"}]}}";
+                        println(resp);
+                    } else if tool_name == "b64_stats" {
+                        let j: String = "{\"engine\":\"oobase64\",\"version\":\"0.2.0\",\"pure_native\":true,\"alphabets\":[\"standard\",\"url-safe\"]}";
+                        let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                            ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(j) + "\"}]}}";
+                        println(resp);
+                    } else {
+                        let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                            ",\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}";
+                        println(resp);
+                    }
+                } else {
+                    let resp: String = "{\"jsonrpc\":\"2.0\",\"id\":" + id +
+                        ",\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}";
+                    println(resp);
+                }
+            }
+        }
+    }
+}

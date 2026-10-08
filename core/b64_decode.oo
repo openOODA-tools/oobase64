@@ -1,0 +1,74 @@
+// # oobase64 Decoding Engine
+//
+// Logline: Decodes Base64 character sequences into original byte strings with strict validation.
+//
+// Setup: Pure 6-bit to 8-bit unpacking with whitespace and padding tolerance.
+//
+// Beats:
+//   1. Filter and parse input characters into 6-bit value sequences.
+//   2. Validate symbols against Base64 character sets and reject invalid glyphs.
+//   3. Reconstruct 8-bit bytes from 6-bit symbol groups and emit owned string.
+
+import "core/b64_alphabet.oo";
+
+pub fn b64_decode_stream(s: String) -> Result[String, String] {
+    let n: Int = chars_len(s);
+    if n == 0 {
+        return Ok("");
+    }
+
+    let mut vals: List[Int] = list_new();
+    let mut i: Int = 0;
+
+    while i < n {
+        let c: String = char_at(s, i);
+        if c == "=" || c == " " || c == "\t" || c == "\r" || c == "\n" {
+            i = i + 1;
+        } else {
+            let v: Int = b64_val_of(c);
+            if v < 0 {
+                return Err("invalid Base64 character: " + c);
+            }
+            vals = list_push(vals, v);
+            i = i + 1;
+        }
+    }
+
+    let nv: Int = list_len(vals);
+    if nv == 0 {
+        return Ok("");
+    }
+
+    let mut buf: List[Int] = bytes_new();
+    let mut g: Int = 0;
+
+    while g < nv {
+        let rem: Int = nv - g;
+        if rem < 2 {
+            return Err("truncated Base64 input");
+        }
+
+        let v0: Int = list_get(vals, g);
+        let v1: Int = list_get(vals, g + 1);
+        let b0: Int = (v0 * 4) + (v1 / 16);
+        buf = bytes_push(buf, b0);
+
+        if rem >= 3 {
+            let v2: Int = list_get(vals, g + 2);
+            let b1: Int = ((v1 % 16) * 16) + (v2 / 4);
+            buf = bytes_push(buf, b1);
+        }
+
+        if rem >= 4 {
+            let v2b: Int = list_get(vals, g + 2);
+            let v3: Int = list_get(vals, g + 3);
+            let b2: Int = ((v2b % 4) * 64) + v3;
+            buf = bytes_push(buf, b2);
+        }
+
+        g = g + 4;
+    }
+
+    let res_str: String = bytes_to_str(buf);
+    return Ok(res_str);
+}
